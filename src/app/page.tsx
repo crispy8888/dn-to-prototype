@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { ScoreResult } from '../types';
 
 export default function HomePage() {
   const [postalCode, setPostalCode] = useState('');

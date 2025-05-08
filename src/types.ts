@@ -1,4 +1,4 @@
-type ScoreResult = {
+export type ScoreResult = {
     postalCode: string;
     scores: {
       familyFriendliness: number;
