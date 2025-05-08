@@ -35,17 +35,23 @@ export default function HomePage() {
       </button>
 
       {result && result.scores && (
-        <div className="mt-4">
-          <h2 className="text-xl font-semibold">Scores for {result.postalCode}</h2>
-          <ul className="list-disc ml-5">
-            {Object.entries(result.scores).map(([key, value]) => (
-              <li key={key} className="capitalize">
-                {key.replace(/([A-Z])/g, ' $1')}: {String(value)}
-              </li>
-            ))}
-          </ul>
+  <div className="mt-6 p-4 bg-gray-100 rounded shadow">
+    <h2 className="text-2xl font-semibold mb-4">Scores for {result.postalCode}</h2>
+    <div className="grid grid-cols-2 gap-4">
+      {Object.entries(result.scores).map(([key, value]) => (
+        <div
+          key={key}
+          className="bg-white rounded p-4 shadow text-center"
+        >
+          <div className="text-sm text-gray-500 capitalize">
+            {key.replace(/([A-Z])/g, ' $1')}
+          </div>
+          <div className="text-2xl font-bold">{value}</div>
         </div>
-      )}  
+      ))}
+    </div>
+  </div>
+)}
     </main>
   );
 }
