@@ -4,7 +4,7 @@ import { ScoreResult } from '../types';
 
 export default function HomePage() {
   const [postalCode, setPostalCode] = useState('');
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<ScoreResult | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleSearch = async () => {
