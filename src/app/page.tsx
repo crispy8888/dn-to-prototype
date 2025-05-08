@@ -3,14 +3,14 @@ import { useState } from 'react';
 
 export default function HomePage() {
   const [postalCode, setPostalCode] = useState('');
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<ScoreResult | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleSearch = async () => {
     setLoading(true);
     setResult(null);
     const res = await fetch(`/api/score?postalCode=${postalCode}`);
-    const data = await res.json();
+    const data: ScoreResult = await res.json();
     setResult(data);
     setLoading(false);
   };
