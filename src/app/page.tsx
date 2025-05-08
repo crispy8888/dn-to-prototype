@@ -39,12 +39,12 @@ export default function HomePage() {
           <ul className="list-disc ml-5">
             {Object.entries(result.scores).map(([key, value]) => (
               <li key={key} className="capitalize">
-                {key.replace(/([A-Z])/g, ' $1')}: {value}
+                {key.replace(/([A-Z])/g, ' $1')}: {String(value)}
               </li>
             ))}
           </ul>
         </div>
-      )}
+      )}  
     </main>
   );
 }
