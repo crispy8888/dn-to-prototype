@@ -2,25 +2,29 @@
 
 import { useState } from 'react';
 
-// --- TYPES ---
-type PlaceSummary = {
-  restaurants: number;
-  cafes: number;
-  schools: number;
-  parks: number;
-  gyms: number;
+export type PlaceDetail = {
+  formattedAddress: string;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
+  displayName: {
+    text: string;
+    languageCode: string;
+  };
 };
 
-type ScoreResult = {
+export type ScoreResult = {
   postalCode: string;
   location: {
     displayName: string;
     lat: number;
     lon: number;
   };
-  placeSummary: PlaceSummary;
-  scores: Record<string, number>;
+  aggregateInsights: any; // you can type this more strictly later
+  detailedPlaces: PlaceDetail[];
 };
+
 
 export default function HomePage() {
   const [postalCode, setPostalCode] = useState('');
@@ -44,6 +48,7 @@ export default function HomePage() {
         throw new Error(`API error: ${res.statusText}`);
       }
       const data: ScoreResult = await res.json();
+      console.log('Received result:', data);
       setResult(data);
     } catch (err) {
       console.error(err);
@@ -54,66 +59,62 @@ export default function HomePage() {
   };
 
   return (
-    <main className="p-8 max-w-xl mx-auto">
-      <h1 className="text-3xl font-bold mb-4">DNTO Neighbourhood Score</h1>
+    <main className="p-8 max-w-2xl mx-auto">
+      <h1 className="text-3xl font-bold mb-4 text-center">Neighbourhood Insights</h1>
 
-      <input
-        className="border p-2 w-full mb-2"
-        type="text"
-        placeholder="Enter postal code"
-        value={postalCode}
-        onChange={(e) => setPostalCode(e.target.value)}
-      />
+      <div className="mb-4">
+        <input
+          className="border p-2 w-full rounded"
+          type="text"
+          placeholder="Enter postal code"
+          value={postalCode}
+          onChange={(e) => setPostalCode(e.target.value)}
+        />
+      </div>
 
       <button
-        className="bg-blue-600 text-white px-4 py-2 rounded w-full"
+        className="bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-700 transition"
         onClick={handleSearch}
         disabled={loading}
       >
-        {loading ? 'Loading...' : 'Get Score'}
+        {loading ? 'Loading...' : 'Get Insights'}
       </button>
 
-      {error && <p className="text-red-600 mt-2">{error}</p>}
+      {error && <p className="text-red-600 mt-2 text-center">{error}</p>}
 
-      {result && (
-        <div className="mt-6 space-y-6">
-          <div className="p-4 bg-gray-100 rounded shadow">
-            <h2 className="text-xl font-semibold mb-2">Location</h2>
-            <p className="text-gray-700">
-              <strong>Address:</strong> {result.location.displayName} <br />
-              <strong>Coordinates:</strong> {result.location.lat}, {result.location.lon}
-            </p>
-          </div>
+{result && (
+  <div className="mt-6 space-y-6">
+    {/* Aggregate Insights Section */}
 
-          <div className="p-4 bg-gray-100 rounded shadow">
-            <h2 className="text-xl font-semibold mb-2">Nearby Places Summary</h2>
-            <ul className="list-disc ml-5">
-              {Object.entries(result.placeSummary).map(([key, count]) => (
-                <li key={key} className="capitalize">
-                  {key.replace(/([A-Z])/g, ' $1')}: {count}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="p-4 bg-gray-100 rounded shadow">
-            <h2 className="text-xl font-semibold mb-2">Lifestyle Scores</h2>
-            <div className="grid grid-cols-2 gap-4">
-              {Object.entries(result.scores).map(([key, value]) => (
-                <div
-                  key={key}
-                  className="bg-white rounded p-4 shadow text-center"
-                >
-                  <div className="text-sm text-gray-500 capitalize">
-                    {key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}
-                  </div>
-                  <div className="text-2xl font-bold">{value}</div>
-                </div>
-              ))}
+    {/* Detailed Places Section */}
+    <div className="p-4 bg-gray-100 rounded shadow">
+      <h2 className="text-xl font-semibold mb-4">Detailed Places</h2>
+      {result.detailedPlaces?.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {result.detailedPlaces.map((place, index) => (
+            <div
+              key={index}
+              className="bg-white rounded p-4 shadow hover:shadow-lg transition"
+            >
+              <h3 className="text-lg font-bold mb-1">
+                {place.displayName?.text || 'Unnamed Place'}
+              </h3>
+              <p className="text-gray-700 text-sm mb-2">
+                {place.formattedAddress}
+              </p>
+              <p className="text-gray-500 text-xs">
+                Lat: {place.location?.latitude}, Lon: {place.location?.longitude}
+              </p>
             </div>
-          </div>
+          ))}
         </div>
+      ) : (
+        <p className="text-gray-500">No detailed places found.</p>
       )}
+    </div>
+  </div>
+)}
+
     </main>
   );
 }

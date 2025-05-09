@@ -1,7 +1,3 @@
-import { PlacesClient } from '@googlemaps/places';
-
-const placesClient = new PlacesClient();
-
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const postalCode = searchParams.get('postalCode');
@@ -11,12 +7,12 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Step 1: Geocode postal code → get lat/lon (still using OpenStreetMap for now)
-    const nominatimRes = await fetch(
+    // Geocode postal code to lat/lon
+    const geoRes = await fetch(
       `https://nominatim.openstreetmap.org/search?postalcode=${postalCode}&country=Canada&format=json`
     );
-    const nominatimData = await nominatimRes.json();
-    const location = nominatimData[0];
+    const geoData = await geoRes.json();
+    const location = geoData[0];
     if (!location) {
       return Response.json({ error: 'Location not found' }, { status: 404 });
     }
@@ -24,40 +20,89 @@ export async function GET(req: Request) {
     const lat = parseFloat(location.lat);
     const lon = parseFloat(location.lon);
 
-    // Step 2: Use Places Aggregate API
-    const request = {
-      location: { latitude: lat, longitude: lon },
-      radius: { value: 1000 }, // 1000 meters (1 km)
-      includedTypes: ['restaurant', 'cafe', 'school', 'park', 'gym'],
-    };
-
-    const [response] = await placesClient.searchNearby(request, {
-        otherArgs: {
-          headers: {
-            'X-Goog-Api-Key': process.env.GOOGLE_PLACES_API_KEY!,
-            'X-Goog-FieldMask': 'places.displayName,places.formattedAddress',
+    // Step 1: Get aggregate insights + place IDs
+    const insightsRequest = {
+      insights: ['INSIGHT_COUNT', 'INSIGHT_PLACES'],
+      filter: {
+        locationFilter: {
+          circle: {
+            latLng: {
+              latitude: lat,
+              longitude: lon,
+            },
+            radius: 5000,
           },
         },
+        typeFilter: {
+          includedTypes: ['restaurant', 'cafe', 'gym', 'school', 'park'],
+        },
+      },
+    };
+
+    const insightsRes = await fetch(
+      'https://areainsights.googleapis.com/v1:computeInsights',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': process.env.GOOGLE_PLACES_AGGREGATE_API_KEY!,
+        },
+        body: JSON.stringify(insightsRequest),
+      }
+    );
+
+    if (!insightsRes.ok) {
+      const errorText = await insightsRes.text();
+      throw new Error(`ComputeInsights API error: ${errorText}`);
+    }
+
+    const insightsData = await insightsRes.json();
+    console.log('Raw insights data:', JSON.stringify(insightsData, null, 2));
+
+    // Step 2: Extract place IDs
+    const placeIds: string[] = [];
+    if (insightsData.placeInsights && Array.isArray(insightsData.placeInsights)) {
+      insightsData.placeInsights.forEach((placeObj: any) => {
+        const placeId = placeObj.place.split('/')[1]; // Extract the ID part after 'places/'
+        if (placeId) {
+          placeIds.push(placeId);
+        }
       });
+    }
+
+console.log('Extracted place IDs:', placeIds);
+
+    console.log('Extracted place IDs:', placeIds);
+
+    // Step 3: Fetch details for each place
+    const detailedPlaces: any[] = [];
+    for (const placeId of placeIds) {
+      console.log(`https://places.googleapis.com/v1/places/${placeId}?fields=displayName,formattedAddress,location`);
+      const placeDetailsRes = await fetch(
+        `https://places.googleapis.com/v1/places/${placeId}?fields=displayName,formattedAddress,location`,
+        {
+          headers: {
+            'X-Goog-Api-Key': process.env.GOOGLE_PLACES_AGGREGATE_API_KEY!,
+          },
+        }
+      );
+
+      if (placeDetailsRes.ok) {
+        const placeDetails = await placeDetailsRes.json();
+        detailedPlaces.push(placeDetails);
+        console.log(`Fetched details for place ${placeId}:`, JSON.stringify(placeDetails, null, 2));
+      }
+
       
-      const placeCounts = {
-        restaurants: response.places?.filter((p) =>
-          p.types?.includes('restaurant')
-        ).length || 0,
-        cafes: response.places?.filter((p) =>
-          p.types?.includes('cafe')
-        ).length || 0,
-        schools: response.places?.filter((p) =>
-          p.types?.includes('school')
-        ).length || 0,
-        parks: response.places?.filter((p) =>
-          p.types?.includes('park')
-        ).length || 0,
-        gyms: response.places?.filter((p) =>
-          p.types?.includes('gym')
-        ).length || 0,
-      };
-      
+
+
+      if (!placeDetailsRes.ok) {
+        const errorText = await placeDetailsRes.text();
+        console.warn(`Failed to fetch details for place ${placeId}: ${errorText}`);
+        console.warn(`Status: ${placeDetailsRes.status} ${placeDetailsRes.statusText}`);
+        console.warn(`Headers: ${JSON.stringify([...placeDetailsRes.headers], null, 2)}`);
+      }
+    }
 
     return Response.json({
       postalCode,
@@ -66,10 +111,14 @@ export async function GET(req: Request) {
         lat,
         lon,
       },
-      placeSummary: placeCounts,
+      aggregateInsights: insightsData,
+      detailedPlaces,
     });
   } catch (error) {
-    console.error(error);
-    return Response.json({ error: 'Failed to fetch data' }, { status: 500 });
+    console.error('Backend error:', error);
+    return Response.json(
+      { error: 'Failed to fetch aggregate + place data', details: String(error) },
+      { status: 500 }
+    );
   }
 }
